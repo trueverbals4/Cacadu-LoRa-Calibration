@@ -1,0 +1,851 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>Cacadu LoRa Cal</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root {
+  --bg: #0d1117;
+  --surface: #161b22;
+  --surface2: #21262d;
+  --border: #30363d;
+  --text: #c9d1d9;
+  --muted: #8b949e;
+  --heading: #f0f6fc;
+  --accent: #58a6ff;
+  --pass: #3fb950;
+  --marginal: #d29922;
+  --fail: #f85149;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg: #f6f8fa; --surface: #ffffff; --surface2: #f0f2f5;
+    --border: #d0d7de; --text: #1f2328; --muted: #636c76;
+    --heading: #1f2328; --accent: #0969da;
+    --pass: #1a7f37; --marginal: #9a6700; --fail: #d1242f;
+    color-scheme: light;
+  }
+}
+:root[data-theme="light"] {
+  --bg: #f6f8fa; --surface: #ffffff; --surface2: #f0f2f5;
+  --border: #d0d7de; --text: #1f2328; --muted: #636c76;
+  --heading: #1f2328; --accent: #0969da;
+  --pass: #1a7f37; --marginal: #9a6700; --fail: #d1242f;
+  color-scheme: light;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{
+  background:var(--bg);color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
+  font-size:14px;line-height:1.6;
+  padding-left:max(16px,env(safe-area-inset-left,0px));
+  padding-right:max(16px,env(safe-area-inset-right,0px));
+  padding-block:0;
+}
+/* ── HEADER ── */
+.site-header{
+  background:var(--surface);border-bottom:1px solid var(--border);
+  padding:12px 0;position:sticky;top:0;z-index:100;
+}
+.hdr{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;}
+.hdr-left{display:flex;flex-direction:column;}
+.hdr-title{font-size:15px;font-weight:700;color:var(--heading);letter-spacing:.01em;}
+.hdr-sub{font-size:11px;color:var(--muted);letter-spacing:.07em;text-transform:uppercase;}
+.theme-btn{
+  background:var(--surface2);border:1px solid var(--border);
+  color:var(--muted);border-radius:6px;padding:5px 10px;font-size:12px;cursor:pointer;
+}
+/* ── TABS ── */
+.tabs{
+  display:flex;border-bottom:1px solid var(--border);
+  overflow-x:auto;scrollbar-width:none;
+}
+.tabs::-webkit-scrollbar{display:none;}
+.tab-btn{
+  padding:10px 18px;background:none;border:none;
+  border-bottom:2px solid transparent;color:var(--muted);
+  cursor:pointer;font-size:13px;font-weight:500;white-space:nowrap;
+  transition:color .15s,border-color .15s;
+}
+.tab-btn.active{color:var(--accent);border-bottom-color:var(--accent);}
+.tab-btn:hover{color:var(--text);}
+.tab-panel{display:none;padding:20px 0;}
+.tab-panel.active{display:block;}
+/* ── CARDS ── */
+.card{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:8px;padding:16px;margin-bottom:16px;
+}
+.card-title{
+  font-size:11px;font-weight:700;color:var(--muted);
+  text-transform:uppercase;letter-spacing:.08em;
+  margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--border);
+}
+/* ── PROTOCOL STEPS ── */
+.step{
+  display:grid;grid-template-columns:32px 1fr;gap:12px;
+  padding:14px 0;border-bottom:1px solid var(--border);
+}
+.step:last-child{border-bottom:none;}
+.step-num{
+  width:32px;height:32px;border-radius:50%;background:var(--accent);
+  color:#fff;display:flex;align-items:center;justify-content:center;
+  font-weight:700;font-size:13px;flex-shrink:0;
+}
+.step-title{font-weight:600;color:var(--heading);margin-bottom:3px;font-size:14px;}
+.step-body{color:var(--muted);font-size:13px;}
+code{
+  background:var(--surface2);border:1px solid var(--border);
+  border-radius:4px;padding:1px 6px;
+  font-family:'SFMono-Regular',Consolas,monospace;font-size:12px;color:var(--accent);
+}
+/* ── PASS/FAIL LEGEND ── */
+.legend{display:flex;gap:16px;flex-wrap:wrap;margin-top:4px;}
+.legend-item{display:flex;align-items:center;gap:6px;font-size:12px;}
+.legend-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+/* ── FORM ── */
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+@media(max-width:480px){.form-grid{grid-template-columns:1fr;}}
+.form-group{display:flex;flex-direction:column;gap:4px;}
+label{font-size:12px;color:var(--muted);font-weight:500;}
+select,input[type=text]{
+  background:var(--surface2);border:1px solid var(--border);
+  border-radius:6px;color:var(--text);padding:7px 10px;font-size:13px;outline:none;
+}
+select:focus,input:focus{border-color:var(--accent);}
+.check-row{display:flex;align-items:center;gap:8px;margin-top:2px;}
+.check-row input{accent-color:var(--accent);}
+.btn{
+  background:var(--accent);color:#fff;border:none;
+  border-radius:6px;padding:8px 18px;font-size:13px;
+  font-weight:600;cursor:pointer;transition:opacity .15s;
+}
+.btn:hover{opacity:.85;}
+.btn-sm{padding:5px 12px;font-size:12px;}
+.cmd-box{
+  background:var(--surface2);border:1px solid var(--border);border-radius:6px;
+  padding:12px 14px;font-family:'SFMono-Regular',Consolas,monospace;font-size:12px;
+  color:var(--accent);margin-top:12px;word-break:break-all;min-height:44px;
+  position:relative;
+}
+.copy-btn{
+  position:absolute;top:8px;right:8px;
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:4px;padding:3px 8px;font-size:11px;
+  color:var(--muted);cursor:pointer;
+}
+.copy-btn:hover{color:var(--text);}
+/* ── DROP ZONE ── */
+.drop-zone{
+  border:2px dashed var(--border);border-radius:8px;
+  padding:28px;text-align:center;color:var(--muted);cursor:pointer;
+  transition:border-color .15s,background .15s;
+}
+.drop-zone:hover,.drop-zone.drag-over{
+  border-color:var(--accent);background:rgba(88,166,255,.05);
+}
+.drop-zone p{font-size:13px;margin-bottom:6px;}
+.drop-zone small{font-size:11px;}
+/* ── RESULTS TABLE ── */
+.tbl-wrap{overflow-x:auto;}
+.results-table{width:100%;border-collapse:collapse;font-size:12px;}
+.results-table th{
+  background:var(--surface2);text-align:left;
+  padding:8px 10px;color:var(--muted);font-weight:600;
+  border-bottom:1px solid var(--border);white-space:nowrap;
+}
+.results-table td{
+  padding:7px 10px;border-bottom:1px solid var(--border);
+  color:var(--text);white-space:nowrap;
+}
+.results-table tr:last-child td{border-bottom:none;}
+.badge{
+  display:inline-block;padding:2px 8px;border-radius:10px;
+  font-size:11px;font-weight:600;
+}
+.pass{background:rgba(63,185,80,.15);color:var(--pass);}
+.marginal{background:rgba(210,153,34,.15);color:var(--marginal);}
+.fail{background:rgba(248,81,73,.15);color:var(--fail);}
+/* ── CHARTS ── */
+.charts-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+@media(max-width:600px){.charts-grid{grid-template-columns:1fr;}}
+.chart-wrap{position:relative;height:200px;}
+/* ── STAT ROW ── */
+.stat-row{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;}
+.stat-box{
+  flex:1;min-width:100px;background:var(--surface);
+  border:1px solid var(--border);border-radius:8px;padding:12px 14px;
+  display:flex;flex-direction:column;gap:4px;
+}
+.stat-label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;}
+.stat-val{font-size:22px;font-weight:700;color:var(--heading);}
+.stat-sub{font-size:11px;color:var(--muted);}
+/* ── NOTICE ── */
+.notice{
+  background:rgba(88,166,255,.08);border:1px solid rgba(88,166,255,.25);
+  border-radius:6px;padding:10px 14px;font-size:12px;color:var(--accent);margin-bottom:12px;
+}
+.notice.warn{
+  background:rgba(210,153,34,.08);border-color:rgba(210,153,34,.3);color:var(--marginal);
+}
+hr{border:none;border-top:1px solid var(--border);margin:16px 0;}
+</style>
+
+<div class="site-header">
+  <div class="hdr">
+    <div class="hdr-left">
+      <span class="hdr-title">Cacadu LoRa Calibration System</span>
+      <span class="hdr-sub">Hoodtronics LLC — Indianapolis, IN</span>
+    </div>
+    <button class="theme-btn" onclick="toggleTheme()">☀ / ☾</button>
+  </div>
+</div>
+
+<div class="tabs">
+  <button class="tab-btn active" onclick="showTab('protocol',this)">Protocol</button>
+  <button class="tab-btn" onclick="showTab('configure',this)">Configure</button>
+  <button class="tab-btn" onclick="showTab('results',this)">Results</button>
+  <button class="tab-btn" onclick="showTab('analysis',this)">Analysis</button>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     TAB 1 — PROTOCOL
+═══════════════════════════════════════════════════════════ -->
+<div id="tab-protocol" class="tab-panel active">
+
+  <div class="card">
+    <div class="card-title">System Overview</div>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:10px;">
+      Cacadu transmits 96×96 images as packetized LoRa frames. Each frame is chunked into 110-byte segments. WROVER1 transmits via RYLR998 on COM7. WROVER2 receives on COM3.
+    </p>
+    <div style="font-size:12px;color:var(--muted);display:flex;gap:8px;flex-wrap:wrap;">
+      <span>TX: <code>COM7</code></span>
+      <span>RX: <code>COM3</code></span>
+      <span>Baud: <code>115200</code></span>
+      <span>SF: <code>SF9/BW125</code></span>
+      <span>Chunk: <code>110 bytes</code></span>
+      <span>Frame: <code>9216 bytes</code></span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Pass / Fail Criteria</div>
+    <div class="legend">
+      <div class="legend-item"><div class="legend-dot" style="background:var(--pass)"></div><span>PASS — packet loss ≤ 5%</span></div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--marginal)"></div><span>MARGINAL — loss 5–7% (apply ARQ cap fix)</span></div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--fail)"></div><span>FAIL — packet loss > 7%</span></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Calibration Protocol — Step by Step</div>
+
+    <div class="step">
+      <div class="step-num">1</div>
+      <div>
+        <div class="step-title">Verify Hardware Connections</div>
+        <div class="step-body">
+          Confirm WROVER1 is on <code>COM7</code>. Confirm WROVER2 is on <code>COM3</code>. Both must be powered. RYLR998 modules must be attached and antennas connected.
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">2</div>
+      <div>
+        <div class="step-title">Flash Latest Firmware</div>
+        <div class="step-body">
+          WROVER1 must run <code>wrover1_tx_v7</code> or later. ARQ recovery requires v7. Flash via Arduino IDE before running any sweep.
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">3</div>
+      <div>
+        <div class="step-title">Confirm Python Dependencies</div>
+        <div class="step-body">
+          Run the following once in a terminal to install <code>pyserial</code>:
+          <div class="cmd-box" style="position:relative">pip install pyserial</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">4</div>
+      <div>
+        <div class="step-title">Choose Test Mode</div>
+        <div class="step-body">
+          Use <strong>Quick mode</strong> for a fast power-only check (1024-byte frame, ~10 min). Use <strong>Full sweep</strong> for complete power + delay characterization (9216-byte frame, ~2.5 hrs).
+          Enable <code>--recover</code> to test ARQ retry behavior.
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">5</div>
+      <div>
+        <div class="step-title">Run the Sweep</div>
+        <div class="step-body">
+          Navigate to the <strong>Configure</strong> tab. Select your options. Copy the generated command. Run it from the folder containing <code>lora_rate_test.py</code>.
+          The script pauses after each 2-run block for your review.
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">6</div>
+      <div>
+        <div class="step-title">Monitor Live Output</div>
+        <div class="step-body">
+          The terminal prints each chunk result with RSSI, SNR, and loss. FRAME_DONE appears when all chunks transmit. Results save incrementally to <code>lora_sweep_results.csv</code>.
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">7</div>
+      <div>
+        <div class="step-title">Review Results</div>
+        <div class="step-body">
+          Go to the <strong>Results</strong> tab. Upload your CSV. Each configuration shows PASS, MARGINAL, or FAIL. Find the lowest power level that achieves ≤ 5% loss.
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">8</div>
+      <div>
+        <div class="step-title">Set Optimal Parameters</div>
+        <div class="step-body">
+          Record the optimal <code>POWER_dBm</code> and <code>DELAY_ms</code>. Update <code>wrover1_tx_v7.ino</code> with these values. Reflash WROVER1. Run <code>pipeline_run.py</code> to confirm end-to-end operation.
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">9</div>
+      <div>
+        <div class="step-title">Document Results</div>
+        <div class="step-body">
+          Save the CSV to <code>C:\Users\Hoodt\Documents\CacaduImages\</code>. Record the final configuration in the lab notebook. Note firmware version, date, and operating conditions.
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="card">
+    <div class="card-title">ARQ Recovery Note</div>
+    <div class="notice warn">
+      ARQ is available on <code>wrover1_tx_v7</code> only. Use <code>--recover</code> flag. It retries chunk 1 (timing-sensitive) plus one additional dropped chunk. Max 2 retries per frame.
+    </div>
+    <p style="font-size:12px;color:var(--muted);">
+      Pre-ARQ loss and post-ARQ loss are both logged. Compare them to assess ARQ effectiveness at each power level.
+    </p>
+  </div>
+
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     TAB 2 — CONFIGURE
+═══════════════════════════════════════════════════════════ -->
+<div id="tab-configure" class="tab-panel">
+
+  <div class="card">
+    <div class="card-title">Port Configuration</div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>TX Port (WROVER1)</label>
+        <input type="text" id="txPort" value="COM7" oninput="buildCmd()">
+      </div>
+      <div class="form-group">
+        <label>RX Port (WROVER2)</label>
+        <input type="text" id="rxPort" value="COM3" oninput="buildCmd()">
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Sweep Mode</div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Frame Size</label>
+        <select id="sweepMode" onchange="buildCmd()">
+          <option value="quick">Quick — 1024 B, power sweep only (~10 min)</option>
+          <option value="power-only">Power only — 9216 B full frame (~50 min)</option>
+          <option value="delay-only">Delay only — 9216 B full frame (~50 min)</option>
+          <option value="">Full sweep — power + delay, 9216 B (~2.5 hrs)</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Output CSV filename</label>
+        <input type="text" id="csvOut" value="lora_sweep_results.csv" oninput="buildCmd()">
+      </div>
+    </div>
+    <div style="margin-top:12px;display:flex;gap:16px;flex-wrap:wrap;">
+      <div class="check-row">
+        <input type="checkbox" id="chkAuto" onchange="buildCmd()">
+        <label for="chkAuto">Auto mode (no pauses between configs)</label>
+      </div>
+      <div class="check-row">
+        <input type="checkbox" id="chkRecover" onchange="buildCmd()">
+        <label for="chkRecover">Enable ARQ recovery (requires v7 firmware)</label>
+      </div>
+    </div>
+    <div style="margin-top:12px;">
+      <label>Custom power levels (optional — leave blank for default: 5,8,11,14,17,22)</label>
+      <input type="text" id="powers" placeholder="e.g. 5,22" oninput="buildCmd()" style="margin-top:4px;">
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Generated Command</div>
+    <div class="notice">Copy and run this command from the folder containing <code>lora_rate_test.py</code>.</div>
+    <div class="cmd-box" id="cmdOutput">
+      <button class="copy-btn" onclick="copyCmd()">Copy</button>
+      <span id="cmdText"></span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Pipeline Verification Command</div>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:10px;">
+      Run this after the sweep to confirm end-to-end pipeline operation.
+    </p>
+    <div class="cmd-box">
+      python pipeline_run.py
+    </div>
+    <p style="font-size:12px;color:var(--muted);margin-top:8px;">
+      Expected output: <code style="color:var(--pass)">✓ MATCH — frame is identical to source image</code>
+    </p>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Sweep Parameters Reference</div>
+    <div class="tbl-wrap">
+      <table class="results-table">
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Default Values</th>
+            <th>Units</th>
+            <th>Notes</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>Power sweep</td><td>5, 8, 11, 14, 17, 22</td><td>dBm (AT+CRFOP)</td><td>Max for RYLR998 is 22 dBm</td></tr>
+          <tr><td>Delay sweep</td><td>700, 800, 915, 1100, 1400</td><td>ms inter-chunk</td><td>Min safe: &gt; 633 ms (SF9 airtime)</td></tr>
+          <tr><td>Runs per config</td><td>2</td><td>runs</td><td>Results averaged per config block</td></tr>
+          <tr><td>Chunk size</td><td>110</td><td>bytes</td><td>Fixed — matches RYLR998 max payload</td></tr>
+          <tr><td>Full frame</td><td>9216</td><td>bytes</td><td>96 × 96 pixels grayscale</td></tr>
+          <tr><td>Quick frame</td><td>1024</td><td>bytes</td><td>Fast validation only</td></tr>
+          <tr><td>ARQ retries</td><td>2 max</td><td>per frame</td><td>Chunk 1 priority + 1 other</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     TAB 3 — RESULTS
+═══════════════════════════════════════════════════════════ -->
+<div id="tab-results" class="tab-panel">
+
+  <div class="card">
+    <div class="card-title">Load CSV Results</div>
+    <div class="drop-zone" id="dropZone"
+         onclick="document.getElementById('csvInput').click()"
+         ondragover="event.preventDefault();this.classList.add('drag-over')"
+         ondragleave="this.classList.remove('drag-over')"
+         ondrop="handleDrop(event)">
+      <p>Drop <code>lora_sweep_results.csv</code> here</p>
+      <small>or click to browse</small>
+    </div>
+    <input type="file" id="csvInput" accept=".csv" style="display:none" onchange="loadCSV(this.files[0])">
+  </div>
+
+  <div id="statsRow" style="display:none">
+    <div class="stat-row" id="statBoxes"></div>
+  </div>
+
+  <div id="resultsCard" style="display:none" class="card">
+    <div class="card-title">Sweep Results</div>
+    <div class="tbl-wrap">
+      <table class="results-table" id="resultsTable">
+        <thead>
+          <tr>
+            <th>Type</th><th>Power (dBm)</th><th>Delay (ms)</th><th>Run</th>
+            <th>Frame B</th><th>Chunks</th><th>Received</th><th>Dropped</th>
+            <th>Loss %</th><th>Pre-ARQ %</th><th>ARQ Retries</th>
+            <th>RSSI Min</th><th>RSSI Max</th><th>RSSI Med</th>
+            <th>Done</th><th>Elapsed s</th><th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="resultsTbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     TAB 4 — ANALYSIS
+═══════════════════════════════════════════════════════════ -->
+<div id="tab-analysis" class="tab-panel">
+
+  <div id="noDataMsg" class="card">
+    <div class="notice">Upload a CSV in the Results tab to generate charts.</div>
+  </div>
+
+  <div id="chartsArea" style="display:none">
+
+    <div class="charts-grid">
+      <div class="card">
+        <div class="card-title">Packet Loss vs TX Power</div>
+        <div class="chart-wrap"><canvas id="chartLoss"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-title">RSSI vs TX Power</div>
+        <div class="chart-wrap"><canvas id="chartRSSI"></canvas></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Pre-ARQ vs Post-ARQ Loss Comparison</div>
+      <div class="chart-wrap" style="height:220px"><canvas id="chartARQ"></canvas></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Optimal Configuration Summary</div>
+      <div id="optimalSummary" style="font-size:13px;color:var(--muted);"></div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ── THEME ────────────────────────────────────────────────────
+function toggleTheme(){
+  const r=document.documentElement;
+  const cur=r.getAttribute('data-theme');
+  r.setAttribute('data-theme', cur==='light'?'dark':'light');
+  if(window._charts) redrawCharts();
+}
+
+// ── TABS ─────────────────────────────────────────────────────
+function showTab(id,btn){
+  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('tab-'+id).classList.add('active');
+  btn.classList.add('active');
+}
+
+// ── COMMAND BUILDER ──────────────────────────────────────────
+function buildCmd(){
+  const tx=document.getElementById('txPort').value.trim()||'COM7';
+  const rx=document.getElementById('rxPort').value.trim()||'COM3';
+  const mode=document.getElementById('sweepMode').value;
+  const csv=document.getElementById('csvOut').value.trim()||'lora_sweep_results.csv';
+  const auto=document.getElementById('chkAuto').checked;
+  const recover=document.getElementById('chkRecover').checked;
+  const powers=document.getElementById('powers').value.trim();
+
+  let cmd='python lora_rate_test.py';
+  cmd+=` --tx ${tx} --rx ${rx}`;
+  if(mode==='quick') cmd+=' --quick';
+  else if(mode==='power-only') cmd+=' --power-only';
+  else if(mode==='delay-only') cmd+=' --delay-only';
+  if(auto) cmd+=' --auto';
+  if(recover) cmd+=' --recover';
+  if(powers) cmd+=` --powers ${powers}`;
+  cmd+=` --out ${csv}`;
+
+  document.getElementById('cmdText').textContent=cmd;
+}
+buildCmd();
+
+function copyCmd(){
+  const txt=document.getElementById('cmdText').textContent;
+  try{
+    navigator.clipboard.writeText(txt).catch(()=>fallbackCopy(txt));
+  }catch(e){fallbackCopy(txt);}
+}
+function fallbackCopy(txt){
+  const el=document.createElement('textarea');
+  el.value=txt;document.body.appendChild(el);
+  el.select();document.execCommand('copy');document.body.removeChild(el);
+}
+
+// ── CSV PARSER ───────────────────────────────────────────────
+let _csvData=[];
+let _charts={};
+
+// ── PRE-LOADED RESULTS (lora_sweep_results.csv, 2026-11-05) ──
+const PRELOADED_CSV =
+  "sweep_type,power_dBm,delay_ms,run_idx,frame_bytes,n_chunks,n_received,n_dropped," +
+  "loss_pct,loss_pct_pre_arq,arq_retries,arq_recovered,arq_failed," +
+  "rssi_min,rssi_max,rssi_median,frame_done,elapsed_s\n" +
+  "power,22,915,1,1024,10,10,0,0.0,10.0,1,1,,-53,-52,-53,True,46.7\n" +
+  "power,22,915,2,1024,10,9,1,10.0,20.0,2,2,1,-53,-53,-53,True,51.3";
+
+window.addEventListener('DOMContentLoaded', function(){
+  parseAndDisplay(PRELOADED_CSV);
+  var dz = document.getElementById('dropZone');
+  if(dz){
+    dz.innerHTML = '<p style="color:var(--pass)">&#10003; Lab results loaded (2 runs)</p>' +
+                   '<small>Drop a new CSV here to replace</small>';
+  }
+});
+
+function handleDrop(e){
+  e.preventDefault();
+  document.getElementById('dropZone').classList.remove('drag-over');
+  const f=e.dataTransfer.files[0];
+  if(f) loadCSV(f);
+}
+
+function loadCSV(file){
+  if(!file) return;
+  const reader=new FileReader();
+  reader.onload=function(e){
+    parseAndDisplay(e.target.result);
+  };
+  reader.readAsText(file);
+}
+
+function parseCSV(text){
+  const lines=text.trim().split('\n');
+  if(lines.length<2) return [];
+  const headers=lines[0].split(',').map(h=>h.trim());
+  return lines.slice(1).map(line=>{
+    const vals=line.split(',').map(v=>v.trim());
+    const obj={};
+    headers.forEach((h,i)=>obj[h]=vals[i]);
+    return obj;
+  }).filter(r=>r.sweep_type);
+}
+
+function getStatus(loss){
+  const l=parseFloat(loss);
+  if(isNaN(l)) return 'unknown';
+  if(l<=5) return 'pass';
+  if(l<=7) return 'marginal';
+  return 'fail';
+}
+
+function statusBadge(loss){
+  const s=getStatus(loss);
+  const labels={pass:'PASS',marginal:'MARGINAL',fail:'FAIL',unknown:'—'};
+  return `<span class="badge ${s}">${labels[s]}</span>`;
+}
+
+function parseAndDisplay(text){
+  _csvData=parseCSV(text);
+  if(!_csvData.length){
+    alert('No valid data found in CSV.');return;
+  }
+  renderTable();
+  renderStats();
+  renderCharts();
+}
+
+function renderTable(){
+  const tbody=document.getElementById('resultsTbody');
+  tbody.innerHTML=_csvData.map(r=>`
+    <tr>
+      <td>${r.sweep_type||'—'}</td>
+      <td>${r.power_dBm}</td>
+      <td>${r.delay_ms}</td>
+      <td>${r.run_idx}</td>
+      <td>${r.frame_bytes}</td>
+      <td>${r.n_chunks}</td>
+      <td>${r.n_received}</td>
+      <td>${r.n_dropped}</td>
+      <td>${r.loss_pct}</td>
+      <td>${r.loss_pct_pre_arq||'—'}</td>
+      <td>${r.arq_retries||'0'}</td>
+      <td>${r.rssi_min||'—'}</td>
+      <td>${r.rssi_max||'—'}</td>
+      <td>${r.rssi_median||'—'}</td>
+      <td>${r.frame_done==='True'?'✓':'✗'}</td>
+      <td>${r.elapsed_s}</td>
+      <td>${statusBadge(r.loss_pct)}</td>
+    </tr>
+  `).join('');
+  document.getElementById('resultsCard').style.display='block';
+}
+
+function renderStats(){
+  const total=_csvData.length;
+  const passing=_csvData.filter(r=>getStatus(r.loss_pct)==='pass').length;
+  const failed=_csvData.filter(r=>getStatus(r.loss_pct)==='fail').length;
+  const losses=_csvData.map(r=>parseFloat(r.loss_pct)).filter(x=>!isNaN(x));
+  const avgLoss=losses.length?(losses.reduce((a,b)=>a+b,0)/losses.length).toFixed(1):'—';
+
+  document.getElementById('statBoxes').innerHTML=`
+    <div class="stat-box">
+      <div class="stat-label">Total Runs</div>
+      <div class="stat-val">${total}</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-label">Pass</div>
+      <div class="stat-val" style="color:var(--pass)">${passing}</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-label">Fail</div>
+      <div class="stat-val" style="color:var(--fail)">${failed}</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-label">Avg Loss</div>
+      <div class="stat-val">${avgLoss}<span style="font-size:14px;font-weight:400">%</span></div>
+    </div>
+  `;
+  document.getElementById('statsRow').style.display='block';
+}
+
+function chartColor(){
+  const dark=document.documentElement.getAttribute('data-theme')==='light'?false:
+    (window.matchMedia('(prefers-color-scheme: dark)').matches);
+  return dark;
+}
+
+function getCSS(v){
+  return getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+}
+
+function renderCharts(){
+  document.getElementById('noDataMsg').style.display='none';
+  document.getElementById('chartsArea').style.display='block';
+
+  // Group by power for power sweep
+  const powerData={};
+  _csvData.filter(r=>r.sweep_type==='power'||!r.sweep_type).forEach(r=>{
+    const p=r.power_dBm;
+    if(!powerData[p]) powerData[p]={losses:[],rssiMeds:[]};
+    const l=parseFloat(r.loss_pct);
+    const rr=parseFloat(r.rssi_median);
+    if(!isNaN(l)) powerData[p].losses.push(l);
+    if(!isNaN(rr)) powerData[p].rssiMeds.push(rr);
+  });
+
+  const powers=Object.keys(powerData).map(Number).sort((a,b)=>a-b);
+  const avgLosses=powers.map(p=>{
+    const a=powerData[p].losses;
+    return a.length?(a.reduce((x,y)=>x+y,0)/a.length):null;
+  });
+  const avgRSSI=powers.map(p=>{
+    const a=powerData[p].rssiMeds;
+    return a.length?(a.reduce((x,y)=>x+y,0)/a.length):null;
+  });
+
+  const accent=getCSS('--accent');
+  const pass=getCSS('--pass');
+  const fail=getCSS('--fail');
+  const muted=getCSS('--muted');
+  const text=getCSS('--text');
+  const bg=getCSS('--surface');
+
+  const baseOpts={
+    responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{display:false}},
+    scales:{
+      x:{ticks:{color:muted},grid:{color:'rgba(128,128,128,.1)'}},
+      y:{ticks:{color:muted},grid:{color:'rgba(128,128,128,.1)'}}
+    }
+  };
+
+  // Destroy old charts
+  ['chartLoss','chartRSSI','chartARQ'].forEach(id=>{
+    if(_charts[id]){_charts[id].destroy();delete _charts[id];}
+  });
+
+  // Loss vs power
+  _charts.chartLoss=new Chart(document.getElementById('chartLoss').getContext('2d'),{
+    type:'bar',
+    data:{
+      labels:powers.map(p=>p+' dBm'),
+      datasets:[{
+        label:'Avg Loss %',
+        data:avgLosses,
+        backgroundColor:avgLosses.map(l=>
+          l===null?'transparent':l<=5?'rgba(63,185,80,.6)':l<=7?'rgba(210,153,34,.6)':'rgba(248,81,73,.6)'),
+        borderColor:avgLosses.map(l=>
+          l===null?'transparent':l<=5?pass:l<=7?getCSS('--marginal'):fail),
+        borderWidth:1,borderRadius:4
+      }]
+    },
+    options:{...baseOpts,plugins:{...baseOpts.plugins,
+      tooltip:{callbacks:{label:c=>`${c.raw!==null?c.raw.toFixed(1):'—'}%`}}
+    }}
+  });
+
+  // RSSI vs power
+  _charts.chartRSSI=new Chart(document.getElementById('chartRSSI').getContext('2d'),{
+    type:'line',
+    data:{
+      labels:powers.map(p=>p+' dBm'),
+      datasets:[{
+        label:'Avg RSSI (dBm)',
+        data:avgRSSI,
+        borderColor:accent,backgroundColor:'rgba(88,166,255,.12)',
+        pointBackgroundColor:accent,tension:.35,fill:true
+      }]
+    },
+    options:{...baseOpts,plugins:{...baseOpts.plugins,legend:{display:false}}}
+  });
+
+  // ARQ comparison
+  const preARQByPow=powers.map(p=>{
+    const a=_csvData.filter(r=>(r.sweep_type==='power'||!r.sweep_type)&&Number(r.power_dBm)===p)
+      .map(r=>parseFloat(r.loss_pct_pre_arq)).filter(x=>!isNaN(x));
+    return a.length?(a.reduce((x,y)=>x+y,0)/a.length):null;
+  });
+
+  _charts.chartARQ=new Chart(document.getElementById('chartARQ').getContext('2d'),{
+    type:'bar',
+    data:{
+      labels:powers.map(p=>p+' dBm'),
+      datasets:[
+        {label:'Pre-ARQ Loss %',data:preARQByPow,backgroundColor:'rgba(248,81,73,.4)',borderColor:fail,borderWidth:1,borderRadius:3},
+        {label:'Post-ARQ Loss %',data:avgLosses,backgroundColor:'rgba(63,185,80,.4)',borderColor:pass,borderWidth:1,borderRadius:3}
+      ]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:true,labels:{color:text}}},
+      scales:{
+        x:{ticks:{color:muted},grid:{color:'rgba(128,128,128,.1)'}},
+        y:{ticks:{color:muted},grid:{color:'rgba(128,128,128,.1)'}}
+      }
+    }
+  });
+
+  // Optimal config
+  const best=powers.filter((p,i)=>avgLosses[i]!==null&&avgLosses[i]<=5);
+  const lowestBest=best.length?Math.min(...best):null;
+  const optDiv=document.getElementById('optimalSummary');
+  if(lowestBest!==null){
+    const idx=powers.indexOf(lowestBest);
+    optDiv.innerHTML=`
+      <div class="notice" style="border-color:var(--pass);background:rgba(63,185,80,.08);color:var(--pass);">
+        ✓ Recommended TX power: <strong>${lowestBest} dBm</strong> —
+        avg loss ${avgLosses[idx].toFixed(1)}% at delay 915 ms.
+        RSSI median: ${avgRSSI[idx]!==null?avgRSSI[idx].toFixed(0)+'dBm':'N/A'}.
+      </div>
+      <p style="margin-top:8px;font-size:12px;">Use the lowest passing power level to maximize battery efficiency.</p>
+    `;
+  } else {
+    optDiv.innerHTML=`<div class="notice warn">No configuration achieved ≤ 5% loss. Run ARQ recovery sweep or check hardware.</div>`;
+  }
+
+  window._charts=_charts;
+}
+
+function redrawCharts(){
+  if(_csvData.length) renderCharts();
+}
+</script>
