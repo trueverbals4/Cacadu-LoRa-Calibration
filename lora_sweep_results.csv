@@ -1,0 +1,3 @@
+sweep_type,power_dBm,delay_ms,run_idx,frame_bytes,n_chunks,n_received,n_dropped,loss_pct,loss_pct_pre_arq,arq_retries,arq_recovered,arq_failed,rssi_min,rssi_max,rssi_median,frame_done,elapsed_s
+power,22,915,1,1024,10,10,0,0.0,10.0,1,1,,-53,-52,-53,True,46.7
+power,22,915,2,1024,10,9,1,10.0,20.0,2,2,1,-53,-53,-53,True,51.3
